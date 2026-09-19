@@ -1,11 +1,11 @@
-name: Automated APK Builder Engine
+name: Professional Release APK Builder
 
 on:
   repository_dispatch:
-    types: [build_custom_app]
+    types: [build_website_apk]
 
 jobs:
-  build-apk:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,25 +20,28 @@ jobs:
 
       - name: Inject User Configurations
         run: |
-          # Webhook theke asha data (App Name, Package Name, URL) diye strings.xml ba Java file update korar command
-          APP_NAME="${{ github.event.client_payload.app_name }}"
+          APP_TITLE="${{ github.event.client_payload.app_title }}"
           PKG_NAME="${{ github.event.client_payload.package_name }}"
-          TARGET_URL="${{ github.event.client_payload.app_url }}"
-          
-          echo "Building App: $APP_NAME ($PKG_NAME) for URL: $TARGET_URL"
-          
-          # Example: string replacement in Android project files
-          sed -i "s|DEFAULT_URL_PLACEHOLDER|$TARGET_URL|g" app/src/main/java/com/builder/app/MainActivity.java
-          sed -i "s|DEFAULT_APP_NAME|$APP_NAME|g" app/src/main/res/values/strings.xml
+          APP_URL="${{ github.event.client_payload.app_url }}"
+
+          echo "Building Release APK for: $APP_TITLE ($PKG_NAME) -> $APP_URL"
+
+          # Update app name in strings.xml
+          if [ -f "app/src/main/res/values/strings.xml" ]; then
+            sed -i "s|<string name=\"app_name\">.*</string>|<string name=\"app_name\">$APP_TITLE</string>|g" app/src/main/res/values/strings.xml
+          fi
+
+          # Update URL in MainActivity.java
+          find app/src/main/java -name "MainActivity.java" -type f -exec sed -i "s|https://yourblogname.blogspot.com|$APP_URL|g" {} +
 
       - name: Make Gradle Executable
         run: chmod +x gradlew
 
-      - name: Build Signed APK (Debug/Release)
-        run: ./gradlew assembleDebug
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
 
-      - name: Upload APK to GitHub Artifacts
+      - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v3
         with:
-          name: generated-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: real-release-apk
+          path: app/build/outputs/apk/release/app-release-unsigned.apk
