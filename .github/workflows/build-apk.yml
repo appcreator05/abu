@@ -1,0 +1,44 @@
+name: Automated APK Builder Engine
+
+on:
+  repository_dispatch:
+    types: [build_custom_app]
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Inject User Configurations
+        run: |
+          # Webhook theke asha data (App Name, Package Name, URL) diye strings.xml ba Java file update korar command
+          APP_NAME="${{ github.event.client_payload.app_name }}"
+          PKG_NAME="${{ github.event.client_payload.package_name }}"
+          TARGET_URL="${{ github.event.client_payload.app_url }}"
+          
+          echo "Building App: $APP_NAME ($PKG_NAME) for URL: $TARGET_URL"
+          
+          # Example: string replacement in Android project files
+          sed -i "s|DEFAULT_URL_PLACEHOLDER|$TARGET_URL|g" app/src/main/java/com/builder/app/MainActivity.java
+          sed -i "s|DEFAULT_APP_NAME|$APP_NAME|g" app/src/main/res/values/strings.xml
+
+      - name: Make Gradle Executable
+        run: chmod +x gradlew
+
+      - name: Build Signed APK (Debug/Release)
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK to GitHub Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: generated-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
